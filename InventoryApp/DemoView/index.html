@@ -1,0 +1,360 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inventory App</title>
+    <link rel="stylesheet" type="text/css" href="DataTables/datatables.min.css" />
+    <style>
+
+        body {
+            margin: 0px !important;
+            padding: 0px !important;
+        }
+
+        h1.appHeading {
+            margin-left: 15px;
+        }
+
+        #list_table td {
+            text-align: center;
+        }
+
+        .form-popup {
+            margin: 0;
+            display: none;
+            border: 3px solid #f1f1f1;
+            z-index: 9999999;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0,0, 0.5) !important;
+        }
+
+        .form-container {
+            max-width: 300px;
+            padding: 10px;
+            background-color: rgba(252, 252, 252, 1) !important;
+            margin: auto;
+        }
+
+            /* Full-width input fields */
+            .form-container input[type=text], .form-container textarea {
+                width: 270px;
+                padding: 15px;
+                margin: 5px 0 22px 0;
+                border: none;
+                background: #f1f1f1;
+            }
+
+                .form-container input[type=text]:focus, .form-container textarea:focus {
+                    background-color: #ddd;
+                    outline: none;
+                }
+
+            .form-container .btn {
+                background-color: #4CAF50;
+                color: white;
+                padding: 16px 20px;
+                border: none;
+                cursor: pointer;
+                display: inline-block;
+                width: 145px;
+                margin-bottom: 10px;
+                opacity: 0.8;
+            }
+
+            .form-container .cancel {
+                background-color: red;
+            }
+
+            .form-container .btn:hover, .open-button:hover {
+                opacity: 1;
+            }
+
+        button.btnAddProduct {
+            margin-right: 20px;
+            margin-bottom: 20px;
+            float: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-popup" id="productForm">
+        <form class="form-container">
+            <h1 id="popup_header">Add Product</h1>
+            <input type="hidden" id="hiddenPID" name="PID" value="" />
+
+            <label for="txtName"><b>Name</b></label>
+            <input type="text" placeholder="Enter Product name" name="PName" id="txtName" maxlength="60" />
+
+            <label for="txtName"><b>Description</b></label>
+            <textarea placeholder="Enter Product description" name="PDescription" id="txtDescription" maxlength="150"></textarea>
+
+            <label for="txtName"><b>Quantity</b></label>
+            <input type="text" placeholder="Enter Product quantity" id="txtQty" name="PQty" />
+
+            <label for="txtName"><b>Price</b></label>
+            <input type="text" placeholder="Enter Product Price" id="txtPrice" name="PPrice" />
+            <button id="btnSubmit" type="button" class="btn" onclick="CreateOrUpdateProduct(event);">Save</button>
+            <button type="button" class="btn cancel" onclick="closeForm()">Close</button>
+        </form>
+    </div>
+    <h1 class="appHeading">Inventory App</h1>
+    <button id="btnAddProduct" type="button" class="btnAddProduct" onclick="openForm(false,'');">New Product</button>
+
+    <table id="list_table" class="cell-border compact stripe">
+        <thead>
+            <tr>
+                <th>Product Id</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Date Added</th>
+                <th>Date Updated</th>
+                <th>Change</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+        <tfoot>
+            <tr>
+                <th>Product Id</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Date Added</th>
+                <th>Date Updated</th>
+                <th>Change</th>
+            </tr>
+        </tfoot>
+    </table>
+
+    <script type="text/javascript" charset="utf8" src="DataTables/datatables.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            PopulateGrid(false);
+        });
+
+        function PopulateGrid(isRefrshData) {
+            $.ajax({
+                type: "GET",
+                dataType: "json",
+                url: "/api/Product?pageSize=10",
+                success: function (data) {
+                    if (isRefrshData == false) {
+                        var datatable = $("#list_table").DataTable({
+                            data: data,
+                            processing: true,
+                            columnDefs: [
+                                {
+                                    targets: 7,
+                                    render: function (data, type, row, meta) {
+                                        return '<input type="button" class="btnEdit" style="margin-right:10px" id=e-"' + meta.row + '" onclick="openForm(true,' + row.PID + ');" value="Edit"/><input type="button" class="btnDelete" id=d-"' + meta.row + '" onclick="DeleteProduct(event,' + row.PID + ');" value="Delete"/>';
+                                    }
+                                }
+                            ],
+                            language: {
+                                "emptyTable": "There are no products at present.",
+                                "zeroRecords": "There were no matching products found."
+                            },
+                            columns: [
+                                { 'data': 'PID' },
+                                { 'data': 'PName' },
+                                { 'data': 'PDescription' },
+                                { 'data': 'PQuantity' },
+                                {
+                                    'data': 'PPrice', 'render': function (PPrice) {
+                                        return '$ ' + PPrice;
+                                    }
+                                },
+                                {
+                                    'data': 'DateAdded', 'render': function (DateAdded) {
+                                        var date = new Date(DateAdded);
+                                        var month = date.getMonth() + 1;
+                                        return (month.toString().length > 1 ? month : "0" + month) + "/" + date.getDate() + "/" + date.getFullYear() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+                                    }
+                                },
+                                {
+                                    'data': 'DateUpdated', 'render': function (DateUpdated) {
+                                        var date = new Date(DateUpdated);
+                                        var month = date.getMonth() + 1;
+                                        return (month.toString().length > 1 ? month : "0" + month) + "/" + date.getDate() + "/" + date.getFullYear() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+                                    }
+                                },
+                                { 'data': 'Change' }
+                            ]
+                        });
+                    }
+                    else {
+                        if ($.fn.dataTable.isDataTable('#list_table')) {
+                            var table = $('#list_table').DataTable();
+                            table.clear();
+                            table.rows.add(data).draw();
+                        }
+                    }
+                }
+            });
+        }
+
+        function CreateOrUpdateProduct(event) {
+            event.preventDefault();
+            if (validateFields() == false)
+                return;
+            var pid = $('#hiddenPID').val();
+            var parameters = {
+                PID: pid,
+                PName: $('#txtName').val(),
+                PDescription: $('#txtDescription').val(),
+                PPrice: $('#txtPrice').val(),
+                PQuantity: $('#txtQty').val()
+            }
+            if (pid != "" && pid != undefined) {
+                $.ajax({
+                    type: "PUT",
+                    dataType: "json",
+                    url: "/api/Product",
+                    data: parameters,
+                    success: function (data) {
+                        if (data > 0) {
+                            PopulateGrid(true);
+                            //alert('Details updated sucessfully for the product id: ' + data);
+                        }
+                        else if (data != '') {
+                            alert(data);
+                            return;
+                        }
+                        else
+                            alert('Product details failed to update.');
+                        $('#hiddenPID').val('');
+                        closeForm();
+                    },
+                    error: function (data) {
+                        alert(data);
+                    }
+                });
+            }
+            else if (pid == "" || pid == undefined) {
+                $.ajax({
+                    type: "POST",
+                    dataType: "json",
+                    url: "/api/Product",
+                    data: parameters,
+                    success: function (data) {
+                        if (data > 0) {
+                            PopulateGrid(true);
+                            //alert('Details updated sucessfully for the product id: ' + data);
+                        }
+                        else if (data != '') {
+                            alert(data);
+                            return;
+                        }
+                        else
+                            alert('Product details failed to update.');
+                        $('#hiddenPID').val('');
+                        closeForm();
+                    },
+                    error: function (data) {
+                        alert(data);
+                    }
+                });
+            }
+        }
+
+        function validateFields() {
+            var errorMessage = "";
+            var name = $('#txtName').val();
+            if (name == '')
+                errorMessage = "Please enter Product Name.";
+            var desc = $('#txtDescription').val();
+            if (desc == "")
+                errorMessage += "\nPlease enter Product Description.";
+            var price = $('#txtPrice').val();
+            if (price == "")
+                errorMessage += "\nPlease enter Product Price.";
+            else if (isNaN(price))
+                errorMessage += "\nPlease enter Product Price in numeric format.";
+            else if (parseFloat(price) < 0)
+                errorMessage += "\nPrice should be greater then 0.";
+            var qty = $('#txtQty').val();
+            if (qty == "")
+                errorMessage += "\nPlease enter Product Quantity.";
+            else if (isNaN(qty))
+                errorMessage += "\nPlease enter Product Quantity in numeric format.";
+            else if (parseFloat(qty) < 0)
+                errorMessage += "\nQuantity should be greater then 0.";
+
+            if (errorMessage != "") {
+                alert(errorMessage);
+                return false;
+            }
+            else
+                return true;
+        }
+
+        function DeleteProduct(event, pid) {
+            event.preventDefault();
+            $.ajax({
+                type: "DELETE",
+                url: "/api/Product/" + pid,
+                dataType: "json",
+                success: function (data) {
+                    if (data > 0) {
+                        PopulateGrid(true);
+                        alert('Details deleted sucessfully for the product id: ' + pid);
+                    }
+                    else
+                        alert('Product details failed to delete.');
+                },
+                error: function (data) {
+                    alert(data);
+                }
+            });
+        }
+
+        function openForm(isEdit, pid) {
+            if (isEdit == true) {
+                $('#hiddenPID').val(pid);
+                $('#popup_header').html('Edit Product');
+                $('#btnSubmit').html('Update');
+                $.ajax({
+                    type: "GET",
+                    dataType: "json",
+                    url: "/api/Product?Id=" + pid,
+                    success: function (data) {
+                        if (data && data != undefined) {
+                            document.getElementById("productForm").style.display = "block";
+                            $('#txtName').val(data.PName);
+                            $('#txtDescription').val(data.PDescription);
+                            $('#txtPrice').val(data.PPrice);
+                            $('#txtQty').val(data.PQuantity);
+                        }
+                        else
+                            alert('Something went wrong!!!.')
+                    },
+                    error: function (data) {
+                        alert(data);
+                    }
+                });
+            }
+            else {
+                $('#hiddenPID').val('');
+                $('#txtName').val('');
+                $('#txtDescription').val('');
+                $('#txtPrice').val('');
+                $('#txtQty').val('');
+                $('#popup_header').html('Add Product');
+                $('#btnSubmit').html('Create');
+                document.getElementById("productForm").style.display = "block";
+            }
+        }
+
+        function closeForm() {
+            document.getElementById("productForm").style.display = "none";
+        }
+    </script>
+
+</body>
+</html>
